@@ -16,13 +16,13 @@ package promgr
 
 import (
 	"fmt"
-	"github.com/goharbor/harbor/src/pkg/scan/whitelist"
+	"github.com/goharbor/harbor/src/pkg/scan/allowlist"
 	"strconv"
 
 	"github.com/goharbor/harbor/src/common/models"
-	"github.com/goharbor/harbor/src/common/utils/log"
 	"github.com/goharbor/harbor/src/core/promgr/metamgr"
 	"github.com/goharbor/harbor/src/core/promgr/pmsdriver"
+	"github.com/goharbor/harbor/src/lib/log"
 )
 
 // ProjectManager is the project manager which abstracts the operations related
@@ -37,6 +37,8 @@ type ProjectManager interface {
 	Exists(projectIDOrName interface{}) (bool, error)
 	// get all public project
 	GetPublic() ([]*models.Project, error)
+	// get all projects that the user is authorized
+	GetAuthorized(user *models.User) ([]*models.Project, error)
 	// if the project manager uses a metadata manager, return it, otherwise return nil
 	GetMetadataManager() metamgr.ProjectMetadataManager
 }
@@ -45,7 +47,7 @@ type defaultProjectManager struct {
 	pmsDriver      pmsdriver.PMSDriver
 	metaMgrEnabled bool // if metaMgrEnabled is enabled, metaMgr will be used to CURD metadata
 	metaMgr        metamgr.ProjectMetadataManager
-	whitelistMgr   whitelist.Manager
+	allowlistMgr   allowlist.Manager
 }
 
 // NewDefaultProjectManager returns an instance of defaultProjectManager,
@@ -58,7 +60,7 @@ func NewDefaultProjectManager(driver pmsdriver.PMSDriver, metaMgrEnabled bool) P
 	}
 	if metaMgrEnabled {
 		mgr.metaMgr = metamgr.NewDefaultProjectMetadataManager()
-		mgr.whitelistMgr = whitelist.NewDefaultManager()
+		mgr.allowlistMgr = allowlist.NewDefaultManager()
 	}
 	return mgr
 }
@@ -80,11 +82,11 @@ func (d *defaultProjectManager) Get(projectIDOrName interface{}) (*models.Projec
 		for k, v := range meta {
 			project.Metadata[k] = v
 		}
-		wl, err := d.whitelistMgr.Get(project.ProjectID)
+		wl, err := d.allowlistMgr.Get(project.ProjectID)
 		if err != nil {
 			return nil, err
 		}
-		project.CVEWhitelist = *wl
+		project.CVEAllowlist = *wl
 	}
 	return project, nil
 }
@@ -94,7 +96,7 @@ func (d *defaultProjectManager) Create(project *models.Project) (int64, error) {
 		return 0, err
 	}
 	if d.metaMgrEnabled {
-		d.whitelistMgr.CreateEmpty(id)
+		d.allowlistMgr.CreateEmpty(id)
 		if len(project.Metadata) > 0 {
 			if err = d.metaMgr.Add(id, project.Metadata); err != nil {
 				log.Errorf("failed to add metadata for project %s: %v", project.Name, err)
@@ -130,7 +132,7 @@ func (d *defaultProjectManager) Update(projectIDOrName interface{}, project *mod
 	}
 	// TODO transaction?
 	if d.metaMgrEnabled {
-		if err := d.whitelistMgr.Set(pro.ProjectID, project.CVEWhitelist); err != nil {
+		if err := d.allowlistMgr.Set(pro.ProjectID, project.CVEAllowlist); err != nil {
 			return err
 		}
 		if len(project.Metadata) > 0 {
@@ -193,7 +195,7 @@ func (d *defaultProjectManager) List(query *models.ProjectQueryParam) (*models.P
 			project.Metadata = meta
 		}
 	}
-	// the whitelist is not populated deliberately
+	// the allowlist is not populated deliberately
 	return result, nil
 }
 
@@ -247,6 +249,23 @@ func (d *defaultProjectManager) GetPublic() ([]*models.Project, error) {
 	result, err := d.List(&models.ProjectQueryParam{
 		Public: &value,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Projects, nil
+}
+
+func (d *defaultProjectManager) GetAuthorized(user *models.User) ([]*models.Project, error) {
+	if user == nil {
+		return nil, nil
+	}
+	result, err := d.List(
+		&models.ProjectQueryParam{
+			Member: &models.MemberQuery{
+				Name:     user.Username,
+				GroupIDs: user.GroupIDs,
+			},
+		})
 	if err != nil {
 		return nil, err
 	}

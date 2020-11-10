@@ -108,18 +108,20 @@
         <clr-dg-cell>{{t.src_resource}}</clr-dg-cell>
         <clr-dg-cell>{{t.dst_resource}}</clr-dg-cell>
         <clr-dg-cell>{{t.operation}}</clr-dg-cell>
-        <clr-dg-cell>{{t.status}}</clr-dg-cell>
+        <clr-dg-cell>{{getStatusStr(t.status)}}</clr-dg-cell>
         <clr-dg-cell>{{t.start_time | date: 'short'}}</clr-dg-cell>
         <clr-dg-cell>{{t.end_time && t.end_time != '0001-01-01T00:00:00Z' ? (t.end_time | date: 'short') : "-"}}</clr-dg-cell>
         <clr-dg-cell>
-          <a target="_blank" [href]="viewLog(t.id)">
+          <a target="_blank" [href]="viewLog(t.id)" *ngIf="t.status !== 'Initialized'">
             <clr-icon shape="list"></clr-icon>
           </a>
         </clr-dg-cell>
       </clr-dg-row>
       <clr-dg-footer>
-        <span *ngIf="totalCount">{{pagination.firstItem + 1}} - {{pagination.lastItem +1 }} {{'REPLICATION.OF' | translate}} </span>{{totalCount }} {{'REPLICATION.ITEMS' | translate}}
-        <clr-dg-pagination #pagination [(clrDgPage)]="currentPage" [clrDgTotalItems]="totalCount" [clrDgPageSize]="pageSize"></clr-dg-pagination>
+        <clr-dg-pagination #pagination [(clrDgPage)]="currentPage" [clrDgTotalItems]="totalCount" [clrDgPageSize]="pageSize">
+          <clr-dg-page-size [clrPageSizeOptions]="[15,25,50]">{{"PAGINATION.PAGE_SIZE" | translate}}</clr-dg-page-size>
+          <span *ngIf="totalCount">{{pagination.firstItem + 1}} - {{pagination.lastItem +1 }} {{'REPLICATION.OF' | translate}} </span>{{totalCount }} {{'REPLICATION.ITEMS' | translate}}
+        </clr-dg-pagination>
       </clr-dg-footer>
     </clr-datagrid>
   </div>

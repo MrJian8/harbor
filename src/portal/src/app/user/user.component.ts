@@ -19,7 +19,7 @@ import { ConfirmationDialogService } from '../shared/confirmation-dialog/confirm
 import { ConfirmationMessage } from '../shared/confirmation-dialog/confirmation-message';
 import { MessageHandlerService } from '../shared/message-handler/message-handler.service';
 import { SessionService } from '../shared/session.service';
-import { AppConfigService } from '../app-config.service';
+import { AppConfigService } from '../services/app-config.service';
 import { NewUserModalComponent } from './new-user-modal.component';
 import { UserService } from './user.service';
 import { User } from './user';
@@ -259,6 +259,8 @@ export class UserComponent implements OnInit, OnDestroy {
                 this.selectedRow = [];
                 this.currentTerm = '';
                 this.refresh();
+            }, error => {
+                this.msgHandler.handleError(error);
             });
         }
     }
@@ -287,7 +289,7 @@ export class UserComponent implements OnInit, OnDestroy {
             this.translate.get(message).subscribe(res =>
                 operateChanges(operMessage, OperationState.failure, res)
             );
-            return observableThrowError(message);
+            return observableThrowError(error);
         }));
     }
 
@@ -316,6 +318,9 @@ export class UserComponent implements OnInit, OnDestroy {
 
     // Data loading
     load(state: any): void {
+        if (state && state.page) {
+           this.pageSize = state.page.size;
+        }
         this.selectedRow = [];
         this.onGoing = true;
         this.getUserListByPaging();

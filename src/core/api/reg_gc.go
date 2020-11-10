@@ -16,6 +16,7 @@ package api
 
 import (
 	"errors"
+	"github.com/goharbor/harbor/src/core/config"
 	"net/http"
 	"os"
 	"strconv"
@@ -48,24 +49,41 @@ func (gc *GCAPI) Prepare() {
 //  "schedule": {
 //    "type": "Daily",
 //    "cron": "0 0 0 * * *"
+//  },
+//  "parameters": {
+//    "delete_untagged": true
 //  }
 //	}
 // create a manual trigger for GC
 // 	{
 //  "schedule": {
 //    "type": "Manual"
+//  },
+//  "parameters": {
+//    "delete_untagged": true
+//    "read_only": true
 //  }
 //	}
 func (gc *GCAPI) Post() {
-	ajr := models.AdminJobReq{}
+	parameters := make(map[string]interface{})
+	ajr := models.AdminJobReq{
+		Parameters: parameters,
+	}
 	isValid, err := gc.DecodeJSONReqAndValidate(&ajr)
 	if !isValid {
 		gc.SendBadRequestError(err)
 		return
 	}
+	ajr.Parameters["redis_url_reg"] = os.Getenv("_REDIS_URL_REG")
+	// default is the non-blocking GC job.
 	ajr.Name = common_job.ImageGC
-	ajr.Parameters = map[string]interface{}{
-		"redis_url_reg": os.Getenv("_REDIS_URL_REG"),
+	ajr.Parameters["time_window"] = config.GetGCTimeWindow()
+	// if specify read_only:true, API will submit the readonly GC job, otherwise default is non-blocking GC job.
+	readOnlyParam, exist := ajr.Parameters["read_only"]
+	if exist {
+		if readOnly, ok := readOnlyParam.(bool); ok && readOnly {
+			ajr.Name = common_job.ImageGCReadOnly
+		}
 	}
 	gc.submit(&ajr)
 	gc.Redirect(http.StatusCreated, strconv.FormatInt(ajr.ID, 10))
@@ -77,19 +95,24 @@ func (gc *GCAPI) Post() {
 //  "schedule": {
 //    "type": "None",
 //    "cron": ""
+//  },
+//  "parameters": {
+//    "delete_untagged": true
 //  }
 //	}
 func (gc *GCAPI) Put() {
-	ajr := models.AdminJobReq{}
+	parameters := make(map[string]interface{})
+	ajr := models.AdminJobReq{
+		Parameters: parameters,
+	}
 	isValid, err := gc.DecodeJSONReqAndValidate(&ajr)
 	if !isValid {
 		gc.SendBadRequestError(err)
 		return
 	}
 	ajr.Name = common_job.ImageGC
-	ajr.Parameters = map[string]interface{}{
-		"redis_url_reg": os.Getenv("_REDIS_URL_REG"),
-	}
+	ajr.Parameters["redis_url_reg"] = os.Getenv("_REDIS_URL_REG")
+	ajr.Parameters["time_window"] = config.GetGCTimeWindow()
 	gc.updateSchedule(ajr)
 }
 

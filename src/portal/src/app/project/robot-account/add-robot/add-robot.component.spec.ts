@@ -1,4 +1,4 @@
-import { async, ComponentFixture, TestBed } from '@angular/core/testing';
+import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
 import { ClarityModule } from '@clr/angular';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { AddRobotComponent } from './add-robot.component';
@@ -7,7 +7,7 @@ import { RobotService } from "../robot-account.service";
 import { of } from "rxjs";
 import { MessageHandlerService } from "../../../shared/message-handler/message-handler.service";
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { AppConfigService } from "../../../app-config.service";
+import { AppConfigService } from "../../../services/app-config.service";
 import { ErrorHandler } from "../../../../lib/utils/error-handler";
 
 describe('AddRobotComponent', () => {
@@ -33,7 +33,7 @@ describe('AddRobotComponent', () => {
     }
   };
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [AddRobotComponent],
       schemas: [

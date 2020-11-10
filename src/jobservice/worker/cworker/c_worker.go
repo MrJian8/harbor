@@ -29,8 +29,8 @@ import (
 	"github.com/goharbor/harbor/src/jobservice/period"
 	"github.com/goharbor/harbor/src/jobservice/runner"
 	"github.com/goharbor/harbor/src/jobservice/worker"
+	"github.com/goharbor/harbor/src/lib/errors"
 	"github.com/gomodule/redigo/redis"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -54,6 +54,7 @@ type basicWorker struct {
 	context   *env.Context
 	scheduler period.Scheduler
 	ctl       lcm.Controller
+	reaper    *reaper
 
 	// key is name of known job
 	// value is the type of known job
@@ -92,6 +93,13 @@ func NewWorker(ctx *env.Context, namespace string, workerCount uint, redisPool *
 		ctl:       ctl,
 		context:   ctx,
 		knownJobs: new(sync.Map),
+		reaper: &reaper{
+			context:   ctx.SystemContext,
+			namespace: namespace,
+			pool:      redisPool,
+			lcmCtl:    ctl,
+			jobTypes:  make([]string, 0), // Append data later (at the start step)
+		},
 	}
 }
 
@@ -121,16 +129,7 @@ func (w *basicWorker) Start() error {
 	}
 
 	// Start the periodic scheduler
-	w.context.WG.Add(1)
-	go func() {
-		defer func() {
-			w.context.WG.Done()
-		}()
-		// Blocking call
-		if err := w.scheduler.Start(); err != nil {
-			w.context.ErrorChan <- err
-		}
-	}()
+	w.scheduler.Start()
 
 	// Listen to the system signal
 	w.context.WG.Add(1)
@@ -139,10 +138,8 @@ func (w *basicWorker) Start() error {
 			w.context.WG.Done()
 			logger.Infof("Basic worker is stopped")
 		}()
+
 		<-w.context.SystemContext.Done()
-		if err := w.scheduler.Stop(); err != nil {
-			logger.Errorf("stop scheduler error: %s", err)
-		}
 		w.pool.Stop()
 	}()
 
@@ -151,7 +148,15 @@ func (w *basicWorker) Start() error {
 	w.pool.Middleware((*workerContext).logJob)
 	// Non blocking call
 	w.pool.Start()
-	logger.Infof("Redis worker is started")
+	logger.Infof("Basic worker is started")
+
+	// Start the reaper
+	w.knownJobs.Range(func(k interface{}, v interface{}) bool {
+		w.reaper.jobTypes = append(w.reaper.jobTypes, k.(string))
+
+		return true
+	})
+	w.reaper.start()
 
 	return nil
 }
@@ -322,7 +327,17 @@ func (w *basicWorker) StopJob(jobID string) error {
 
 	if job.RunningStatus.Compare(job.Status(t.Job().Info.Status)) < 0 {
 		// Job has been in the final states
-		return errors.Errorf("mismatch job status for stopping job: %s, job status %s is behind %s", jobID, t.Job().Info.Status, job.RunningStatus)
+		logger.Warningf("Trying to stop a(n) %s job: ID=%s, Kind=%s", t.Job().Info.Status, jobID, t.Job().Info.JobKind)
+		// Under this situation, the non-periodic job we're trying to stop has already been in the "non-running(stopped)" status.
+		// As the goal of stopping the job running has achieved, we directly return nil here.
+		if t.Job().Info.JobKind != job.KindPeriodic {
+			return nil
+		}
+
+		// For the periodic job, its status should always be "Scheduled".
+		// This case should never happen under the current model. But there might be some legacy job stats data
+		// to cause such inconsistent situation.
+		// Under this situation, let the periodical scheduler to handle and fix the issue.
 	}
 
 	switch t.Job().Info.JobKind {
@@ -333,9 +348,9 @@ func (w *basicWorker) StopJob(jobID string) error {
 		// otherwise, stop it.
 		if err := w.client.DeleteScheduledJob(t.Job().Info.RunAt, jobID); err != nil {
 			// Job is already running?
-			logger.Errorf("scheduled job %s (run at = %d) is not found in the queue to stop, is it already running?", jobID, t.Job().Info.RunAt)
+			logger.Errorf("scheduled job %s (run at = %d) is not found in the queue, is it running?", jobID, t.Job().Info.RunAt)
 		}
-		// Anyway, mark jon stopped
+		// Anyway, mark job stopped
 		return t.Stop()
 	case job.KindPeriodic:
 		return w.scheduler.UnSchedule(jobID)
@@ -405,8 +420,10 @@ func (w *basicWorker) registerJob(name string, j interface{}) (err error) {
 	w.pool.JobWithOptions(
 		name,
 		work.JobOptions{
-			MaxFails: theJ.MaxFails(),
-			SkipDead: true,
+			MaxFails:       theJ.MaxFails(),
+			MaxConcurrency: theJ.MaxCurrency(),
+			Priority:       job.Priority().For(name),
+			SkipDead:       true,
 		},
 		// Use generic handler to handle as we do not accept context with this way.
 		func(job *work.Job) error {

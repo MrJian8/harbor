@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/goharbor/harbor/src/common/job"
-	"github.com/goharbor/harbor/src/common/utils/log"
 	cfg "github.com/goharbor/harbor/src/core/config"
+	"github.com/goharbor/harbor/src/lib/log"
 	"github.com/goharbor/harbor/src/replication/config"
 	"github.com/goharbor/harbor/src/replication/event"
 	"github.com/goharbor/harbor/src/replication/operation"
@@ -46,11 +46,13 @@ import (
 	// register the Jfrog Artifactory adapter
 	_ "github.com/goharbor/harbor/src/replication/adapter/jfrog"
 	// register the Quay.io adapter
-	_ "github.com/goharbor/harbor/src/replication/adapter/quayio"
+	_ "github.com/goharbor/harbor/src/replication/adapter/quay"
 	// register the Helm Hub adapter
 	_ "github.com/goharbor/harbor/src/replication/adapter/helmhub"
 	// register the GitLab adapter
 	_ "github.com/goharbor/harbor/src/replication/adapter/gitlab"
+	// register the DTR adapter
+	_ "github.com/goharbor/harbor/src/replication/adapter/dtr"
 )
 
 var (

@@ -140,10 +140,10 @@ Self Reg Should Be Enabled
     Checkbox Should Be Selected  xpath=${self_reg_xpath}
 
 Project Creation Should Display
-    Page Should Contain Element  xpath=${project_create_xpath}
+    Retry Wait Until Page Contains Element  xpath=${project_create_xpath}
 
 Project Creation Should Not Display
-    Page Should Not Contain Element  xpath=${project_create_xpath}
+    Retry Wait Until Page Not Contains Element  xpath=${project_create_xpath}
 
 ## System settings
 Switch To System Settings
@@ -154,7 +154,14 @@ Switch To System Settings
 
 Switch To Project Quotas
     Sleep  1
+    Retry Element Click  xpath=${configuration_xpath}
+    Sleep  1
     Retry Element Click  xpath=//clr-main-container//clr-vertical-nav//a[contains(.,'Project Quotas')]
+    Sleep  1
+
+Switch To Distribution
+    Sleep  1
+    Retry Element Click  xpath=//clr-main-container//clr-vertical-nav-group//span[contains(.,'Distributions')]
     Sleep  1
 
 Modify Token Expiration
@@ -166,6 +173,10 @@ Modify Token Expiration
 Token Must Be Match
     [Arguments]  ${minutes}
     Textfield Value Should Be  xpath=//*[@id='tokenExpiration']  ${minutes}
+
+Robot Account Token Must Be Match
+    [Arguments]  ${days}
+    Textfield Value Should Be  xpath=//*[@id='robotTokenExpiration']  ${days}
 
 ## Replication
 Check Verify Remote Cert
@@ -196,7 +207,7 @@ Config Email
     Input Text  xpath=//*[@id='emailUsername']  example@vmware.com
     Input Text  xpath=//*[@id='emailPassword']  example
     Input Text  xpath=//*[@id='emailFrom']  example<example@vmware.com>
-    Sleep  1    
+    Sleep  1
     Retry Element Click  xpath=//*[@id='emailSSL-wrapper']/label
     Sleep  1
     Retry Element Click  xpath=//*[@id='emailInsecure-wrapper']/label
@@ -229,12 +240,12 @@ Click Scan Now
 
 
 Enable Read Only
-    ${rc}  ${output}=  Run And Return Rc And Output  curl -u admin:Harbor12345 -s --insecure -H "Content-Type: application/json" -X PUT -d '{"read_only":true}' "https://${ip}/api/configurations"
+    ${rc}  ${output}=  Run And Return Rc And Output  curl -u admin:Harbor12345 -s --insecure -H "Content-Type: application/json" -X PUT -d '{"read_only":true}' "https://${ip}/api/v2.0/configurations"
     Log To Console  ${output}
     Should Be Equal As Integers  ${rc}  0
 
 Disable Read Only
-    ${rc}  ${output}=  Run And Return Rc And Output  curl -u admin:Harbor12345 -s --insecure -H "Content-Type: application/json" -X PUT -d '{"read_only":false}' "https://${ip}/api/configurations"
+    ${rc}  ${output}=  Run And Return Rc And Output  curl -u admin:Harbor12345 -s --insecure -H "Content-Type: application/json" -X PUT -d '{"read_only":false}' "https://${ip}/api/v2.0/configurations"
     Log To Console  ${output}
     Should Be Equal As Integers  ${rc}  0
 
@@ -310,18 +321,20 @@ Switch To GC History
     Retry Element Click  xpath=${gc_log_xpath}
     Retry Wait Until Page Contains  Job
 
-Add Items To System CVE Whitelist
+Add Items To System CVE Allowlist
     [Arguments]    ${cve_id}
     Retry Element Click    ${configuration_system_wl_add_btn}
     Retry Text Input    ${configuration_system_wl_textarea}    ${cve_id}
     Retry Element Click    ${configuration_system_wl_add_confirm_btn}
     Retry Element Click    ${config_system_save_button_xpath}
 
-Delete Top Item In System CVE Whitelist
+Delete Top Item In System CVE Allowlist
     [Arguments]  ${count}=1
-    :FOR  ${idx}  IN RANGE  1  ${count}
-    \   Retry Element Click    ${configuration_system_wl_delete_a_cve_id_icon}
+    FOR  ${idx}  IN RANGE  1  ${count}
+        Retry Element Click    ${configuration_system_wl_delete_a_cve_id_icon}
+    END
     Retry Element Click    ${config_system_save_button_xpath}
+    Capture Page Screenshot
 
 Get Project Count Quota Text From Project Quotas List
     [Arguments]    ${project_name}
@@ -331,6 +344,76 @@ Get Project Count Quota Text From Project Quotas List
 
 Get Project Storage Quota Text From Project Quotas List
     [Arguments]    ${project_name}
+    Switch To Configure
     Switch To Project Quotas
-    ${storage_quota}=    Get Text    xpath=//project-quotas//clr-datagrid//clr-dg-row[contains(.,'${project_name}')]//clr-dg-cell[4]//label
+    ${storage_quota}=    Get Text    xpath=//project-quotas//clr-datagrid//clr-dg-row[contains(.,'${project_name}')]//clr-dg-cell[3]//label
     [Return]  ${storage_quota}
+
+Check Automatic Onboarding And Save
+    Retry Element Click  ${cfg_auth_automatic_onboarding_checkbox}
+    Retry Element Click  xpath=${config_auth_save_button_xpath}
+    Capture Page Screenshot
+
+Set User Name Claim And Save
+    [Arguments]    ${type}
+    Retry Text Input  ${cfg_auth_user_name_claim_input}  ${type}
+    Retry Element Click  xpath=${config_auth_save_button_xpath}
+    Capture Page Screenshot
+
+Select Distribution
+    [Arguments]    ${name}
+    Retry Element Click    //clr-dg-row[contains(.,'${name}')]//clr-checkbox-wrapper/label
+
+Distribution Exist
+    [Arguments]  ${name}  ${endpoint}
+    Retry Wait Until Page Contains Element  //clr-dg-row[contains(.,'${name}') and contains(.,'${endpoint}')]
+
+Distribution Not Exist
+    [Arguments]  ${name}  ${endpoint}
+    Retry Wait Until Page Not Contains Element  //clr-dg-row[contains(.,'${name}') and contains(.,'${endpoint}')]
+
+Filter Distribution List
+    [Arguments]  ${name}  ${endpoint}  ${exsit}=${true}
+    Retry Double Keywords When Error  Retry Element Click  ${filter_dist_btn}  Wait Until Element Is Visible And Enabled  ${filter_dist_input}
+    Retry Text Input  ${filter_dist_input}  ${name}
+    Run Keyword If  ${exsit}==${true}    Distribution Exist  ${name}  ${endpoint}
+    ...  ELSE  Distribution Not Exist  ${name}  ${endpoint}
+
+Select Provider
+    [Arguments]    ${provider}
+    Retry Element Click    ${distribution_provider_select_id}
+    Retry Element Click    ${distribution_provider_select_id}//option[contains(.,'${provider}')]
+
+Create An New Distribution
+    [Arguments]    ${provider}  ${name}  ${endpoint}
+    Switch To Distribution
+    Retry Element Click  ${distribution_add_btn_id}
+    Select Provider  ${provider}
+    Retry Text Input  ${distribution_name_input_id}  ${name}
+    Retry Text Input  ${distribution_endpoint_id}  ${endpoint}
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_add_save_btn_id}  Retry Wait Until Page Not Contains Element  xpath=${distribution_add_save_btn_id}
+    Distribution Exist  ${name}  ${endpoint}
+
+Delete A Distribution
+    [Arguments]    ${name}  ${endpoint}  ${deletable}=${true}
+    ${is_exsit}    evaluate    not ${deletable}
+    Switch To Distribution
+    Filter Distribution List  ${name}  ${endpoint}
+    Retry Double Keywords When Error  Select Distribution   ${name}  Wait Until Element Is Visible  //clr-datagrid//clr-dg-footer//clr-checkbox-wrapper/label
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_action_btn_id}  Wait Until Element Is Visible And Enabled  ${distribution_del_btn_id}
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_del_btn_id}  Wait Until Element Is Visible And Enabled  ${delete_confirm_btn}
+    Retry Double Keywords When Error  Retry Element Click  ${delete_confirm_btn}  Retry Wait Until Page Not Contains Element  ${delete_confirm_btn}
+    Sleep  10
+    Filter Distribution List  ${name}  ${endpoint}  exsit=${is_exsit}
+
+Edit A Distribution
+    [Arguments]    ${name}  ${endpoint}  ${new_endpoint}=${null}
+    Switch To Distribution
+    Filter Distribution List  ${name}  ${endpoint}
+    Retry Double Keywords When Error  Select Distribution   ${name}  Wait Until Element Is Visible  //clr-datagrid//clr-dg-footer//clr-checkbox-wrapper/label  times=9
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_action_btn_id}  Wait Until Element Is Visible And Enabled  ${distribution_edit_btn_id}
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_edit_btn_id}  Wait Until Element Is Visible And Enabled  ${distribution_name_input_id}
+    Retry Text Input  ${distribution_endpoint_id}  ${new_endpoint}
+    Retry Double Keywords When Error  Retry Element Click  ${distribution_add_save_btn_id}  Retry Wait Until Page Not Contains Element  xpath=${distribution_add_save_btn_id}
+    Filter Distribution List  ${name}  ${new_endpoint}
+    Distribution Exist  ${name}  ${new_endpoint}

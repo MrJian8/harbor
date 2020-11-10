@@ -23,9 +23,7 @@ func init() {
 		new(User),
 		new(Project),
 		new(Role),
-		new(AccessLog),
 		new(RepoRecord),
-		new(ClairVulnTimestamp),
 		new(ProjectMetadata),
 		new(ConfigEntry),
 		new(Label),
@@ -36,12 +34,8 @@ func init() {
 		new(OIDCUser),
 		new(NotificationPolicy),
 		new(NotificationJob),
-		new(Blob),
 		new(ProjectBlob),
-		new(Artifact),
 		new(ArtifactAndBlob),
-		new(CVEWhitelist),
-		new(Quota),
-		new(QuotaUsage),
+		new(CVEAllowlist),
 	)
 }

@@ -81,16 +81,18 @@ type OIDCSetting struct {
 	Name         string   `json:"name"`
 	Endpoint     string   `json:"endpoint"`
 	VerifyCert   bool     `json:"verify_cert"`
+	AutoOnboard  bool     `json:"auto_onboard"`
 	ClientID     string   `json:"client_id"`
 	ClientSecret string   `json:"client_secret"`
 	GroupsClaim  string   `json:"groups_claim"`
+	AdminGroup   string   `json:"admin_group"`
 	RedirectURL  string   `json:"redirect_url"`
 	Scope        []string `json:"scope"`
+	UserClaim    string   `json:"user_claim"`
 }
 
 // QuotaSetting wraps the settings for Quota
 type QuotaSetting struct {
-	CountPerProject   int64 `json:"count_per_project"`
 	StoragePerProject int64 `json:"storage_per_project"`
 }
 

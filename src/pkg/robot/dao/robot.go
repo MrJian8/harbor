@@ -1,10 +1,12 @@
 package dao
 
 import (
+	"context"
 	"fmt"
 	"github.com/astaxie/beego/orm"
 	"github.com/goharbor/harbor/src/common/dao"
-	"github.com/goharbor/harbor/src/pkg/q"
+	libOrm "github.com/goharbor/harbor/src/lib/orm"
+	"github.com/goharbor/harbor/src/lib/q"
 	"github.com/goharbor/harbor/src/pkg/robot/model"
 	"strings"
 	"time"
@@ -26,6 +28,9 @@ type RobotAccountDao interface {
 
 	// DeleteRobotAccount ...
 	DeleteRobotAccount(id int64) error
+
+	// DeleteByProjectID ...
+	DeleteByProjectID(ctx context.Context, projectID int64) error
 }
 
 // New creates a default implementation for RobotAccountDao
@@ -73,7 +78,11 @@ func (r *robotAccountDao) ListRobotAccounts(query *q.Query) ([]*model.Robot, err
 	if query != nil {
 		if len(query.Keywords) > 0 {
 			for k, v := range query.Keywords {
-				qt = qt.Filter(fmt.Sprintf("%s__icontains", k), v)
+				if k == "ProjectID" {
+					qt = qt.Filter("ProjectID", v)
+				} else {
+					qt = qt.Filter(fmt.Sprintf("%s__icontains", k), v)
+				}
 			}
 		}
 
@@ -97,5 +106,15 @@ func (r *robotAccountDao) UpdateRobotAccount(robot *model.Robot) error {
 // DeleteRobotAccount ...
 func (r *robotAccountDao) DeleteRobotAccount(id int64) error {
 	_, err := dao.GetOrmer().QueryTable(&model.Robot{}).Filter("ID", id).Delete()
+	return err
+}
+
+// DeleteByProjectID ...
+func (r *robotAccountDao) DeleteByProjectID(ctx context.Context, projectID int64) error {
+	qs, err := libOrm.QuerySetter(ctx, &model.Robot{}, q.New(q.KeyWords{"ProjectID": projectID}))
+	if err != nil {
+		return err
+	}
+	_, err = qs.Delete()
 	return err
 }

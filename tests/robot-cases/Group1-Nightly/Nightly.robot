@@ -54,7 +54,7 @@ Test Case - Repo Size
     Push Image With Tag  ${ip}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}  library  alpine  2.6  2.6
     Go Into Project  library
     Go Into Repo  alpine
-    Page Should Contain  1.92MB 
+    Page Should Contain  1.92MB
     Close Browser
 
 Test Case - Staticsinfo
@@ -195,7 +195,7 @@ Test Case - Manage project publicity
     Logout Harbor
     Sign In Harbor  ${HARBOR_URL}  userb${d}  Test1@34
     Project Should Not Display  project${d}
-    Cannot Pull image  ${ip}  userb${d}  Test1@34  project${d}  hello-world:latest
+    Cannot Pull Image  ${ip}  userb${d}  Test1@34  project${d}  hello-world:latest
 
     Logout Harbor
     Sign In Harbor  ${HARBOR_URL}  usera${d}  Test1@34
@@ -393,7 +393,7 @@ TestCase - Developer Operate Labels
     Sign In Harbor  ${HARBOR_URL}  bob${d}  Test1@34
     Go Into Project  project${d}  has_image=${false}
     Sleep  3
-    Page Should Not Contain Element  xpath=//a[contains(.,'Labels')]
+    Retry Wait Until Page Not Contains Element  xpath=//a[contains(.,'Labels')]
     Close Browser
 
 Test Case - Scan A Tag In The Repo

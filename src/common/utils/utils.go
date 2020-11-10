@@ -22,11 +22,12 @@ import (
 	"net"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/goharbor/harbor/src/common/utils/log"
+	"github.com/goharbor/harbor/src/lib/log"
 )
 
 // ParseEndpoint parses endpoint to a URL
@@ -63,10 +64,9 @@ func ParseRepository(repository string) (project, rest string) {
 	return
 }
 
-// GenerateRandomString generates a random string
-func GenerateRandomString() string {
-	length := 32
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+// GenerateRandomStringWithLen generates a random string with length
+func GenerateRandomStringWithLen(length int) string {
+	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	l := len(chars)
 	result := make([]byte, length)
 	_, err := rand.Read(result)
@@ -77,6 +77,11 @@ func GenerateRandomString() string {
 		result[i] = chars[int(result[i])%l]
 	}
 	return string(result)
+}
+
+// GenerateRandomString generate a random string with 32 byte length
+func GenerateRandomString() string {
+	return GenerateRandomStringWithLen(32)
 }
 
 // TestTCPConn tests TCP connection
@@ -278,4 +283,15 @@ func ParseJSONInt(value interface{}) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// FindNamedMatches returns named matches of the regexp groups
+func FindNamedMatches(regex *regexp.Regexp, str string) map[string]string {
+	match := regex.FindStringSubmatch(str)
+
+	results := map[string]string{}
+	for i, name := range match {
+		results[regex.SubexpNames()[i]] = name
+	}
+	return results
 }

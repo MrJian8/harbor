@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/goharbor/harbor/src/core/config"
+
 	"github.com/goharbor/harbor/src/common/rbac"
-	"github.com/goharbor/harbor/src/core/filter"
 	"github.com/goharbor/harbor/src/core/promgr"
 	"github.com/goharbor/harbor/src/pkg/retention"
 	"github.com/goharbor/harbor/src/pkg/retention/policy"
@@ -28,13 +29,7 @@ func (r *RetentionAPI) Prepare() {
 		r.SendUnAuthorizedError(errors.New("UnAuthorized"))
 		return
 	}
-	pm, e := filter.GetProjectManager(r.Ctx.Request)
-	if e != nil {
-		r.SendInternalServerError(e)
-		return
-	}
-	r.pm = pm
-
+	r.pm = config.GlobalProjectMgr
 }
 
 // GetMetadatas Get Metadatas
@@ -44,7 +39,7 @@ func (r *RetentionAPI) GetMetadatas() {
     "templates": [
         {
             "rule_template": "latestPushedK",
-            "display_text": "the most recently pushed # images",
+            "display_text": "the most recently pushed # artifacts",
             "action": "retain",
             "params": [
                 {
@@ -56,7 +51,7 @@ func (r *RetentionAPI) GetMetadatas() {
         },
         {
             "rule_template": "latestPulledN",
-            "display_text": "the most recently pulled # images",
+            "display_text": "the most recently pulled # artifacts",
             "action": "retain",
             "params": [
                 {

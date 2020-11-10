@@ -1,26 +1,34 @@
-import { async, ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
 import { EditProjectQuotasComponent } from './edit-project-quotas.component';
-import { SharedModule } from '../../../../utils/shared/shared.module';
-import { InlineAlertComponent } from '../../../inline-alert/inline-alert.component';
 import { SERVICE_CONFIG, IServiceConfig } from '../../../../entities/service.config';
-import { RouterModule } from '@angular/router';
+import { EditQuotaQuotaInterface } from '../../../../services';
+import { HarborLibraryModule } from '../../../../harbor-library.module';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { CURRENT_BASE_HREF } from "../../../../utils/utils";
+import { ErrorHandler } from '../../../../utils/error-handler';
 
 describe('EditProjectQuotasComponent', () => {
   let component: EditProjectQuotasComponent;
   let fixture: ComponentFixture<EditProjectQuotasComponent>;
   let config: IServiceConfig = {
-    quotaUrl: "/api/quotas/testing"
+    quotaUrl: CURRENT_BASE_HREF + "/quotas/testing"
   };
-  beforeEach(async(() => {
+  const mockedEditQuota: EditQuotaQuotaInterface = {
+    editQuota: "Edit Default Project Quotas",
+    setQuota: "Set the default project quotas when creating new projects",
+    storageQuota: "Default storage consumption",
+    quotaHardLimitValue: {storageLimit: -1, storageUnit: "Byte"},
+    isSystemDefaultQuota: true
+  };
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
-        SharedModule,
-        RouterModule.forRoot([])
+        HarborLibraryModule,
+        BrowserAnimationsModule
       ],
-      declarations: [ EditProjectQuotasComponent, InlineAlertComponent ],
       providers: [
         { provide: SERVICE_CONFIG, useValue: config },
+        ErrorHandler
       ]
     })
     .compileComponents();
@@ -34,4 +42,19 @@ describe('EditProjectQuotasComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  // ToDo update it with storage edit?
+  // it('should open', async () => {
+  //   component.openEditQuota = true;
+  //   fixture.detectChanges();
+  //   await fixture.whenStable();
+  //   component.openEditQuotaModal(mockedEditQuota);
+  //   fixture.detectChanges();
+  //   await fixture.whenStable();
+  //   let countInput: HTMLInputElement = fixture.nativeElement.querySelector('#count');
+  //   countInput.value = "100";
+  //   countInput.dispatchEvent(new Event("input"));
+  //   fixture.detectChanges();
+  //   await fixture.whenStable();
+  //   expect(component.isValid).toBeTruthy();
+  // });
 });

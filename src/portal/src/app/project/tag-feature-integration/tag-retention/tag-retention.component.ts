@@ -14,7 +14,7 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AddRuleComponent } from "./add-rule/add-rule.component";
-import { ClrDatagridStringFilterInterface } from "@clr/angular";
+import {ClrDatagridStateInterface, ClrDatagridStringFilterInterface} from "@clr/angular";
 import { TagRetentionService } from "./tag-retention.service";
 import { Retention, Rule } from "./retention";
 
@@ -24,7 +24,7 @@ import { finalize } from "rxjs/operators";
 import { CronScheduleComponent } from "../../../../lib/components/cron-schedule";
 import { ErrorHandler } from "../../../../lib/utils/error-handler";
 import { OriginCron } from "../../../../lib/services";
-import { clone } from "../../../../lib/utils/utils";
+import {clone, DEFAULT_PAGE_SIZE} from "../../../../lib/utils/utils";
 
 const MIN = 60000;
 const SEC = 1000;
@@ -37,6 +37,13 @@ const SCHEDULE_TYPE = {
     HOURLY: "Hourly",
     CUSTOM: "Custom"
 };
+const DECORATION = {
+    MATCHES: "matches",
+    EXCLUDES: "excludes",
+};
+const RUNNING: string = "Running";
+const PENDING: string = "pending";
+const TIMEOUT: number = 5000;
 @Component({
     selector: 'tag-retention',
     templateUrl: './tag-retention.component.html',
@@ -78,15 +85,15 @@ export class TagRetentionComponent implements OnInit {
     label: string = 'TAG_RETENTION.TRIGGER';
     loadingRule: boolean = false;
     currentPage: number = 1;
-    pageSize: number = 10;
+    pageSize: number = DEFAULT_PAGE_SIZE;
     totalCount: number = 0;
     currentLogPage: number = 1;
     totalLogCount: number = 0;
     logPageSize: number = 5;
     isDetailOpened: boolean = false;
-    @ViewChild('cronScheduleComponent', {static: false})
+    @ViewChild('cronScheduleComponent')
     cronScheduleComponent: CronScheduleComponent;
-    @ViewChild('addRule', {static: false}) addRuleComponent: AddRuleComponent;
+    @ViewChild('addRule') addRuleComponent: AddRuleComponent;
     constructor(
         private route: ActivatedRoute,
         private tagRetentionService: TagRetentionService,
@@ -173,6 +180,8 @@ export class TagRetentionComponent implements OnInit {
                             if (!item.params) {
                                 item.params = {};
                             }
+                            this.setRuleUntagged(item);
+
                         });
                     }
                     this.retention = response;
@@ -222,7 +231,28 @@ export class TagRetentionComponent implements OnInit {
                 this.errorHandler.error(error);
             });
     }
+    setRuleUntagged(rule) {
+        if (!rule.tag_selectors[0].extras) {
+            if (rule.tag_selectors[0].decoration === DECORATION.MATCHES) {
+                rule.tag_selectors[0].extras = JSON.stringify({untagged: true});
+            }
+            if (rule.tag_selectors[0].decoration === DECORATION.EXCLUDES) {
+                rule.tag_selectors[0].extras = JSON.stringify({untagged: false});
 
+            }
+        } else {
+            let extras = JSON.parse(rule.tag_selectors[0].extras);
+            if (extras.untagged === undefined) {
+                if (rule.tag_selectors[0].decoration === DECORATION.MATCHES) {
+                    extras.untagged = true;
+                }
+                if (rule.tag_selectors[0].decoration === DECORATION.EXCLUDES) {
+                    extras.untagged = false;
+                }
+                rule.tag_selectors[0].extras = JSON.stringify(extras);
+            }
+        }
+    }
     openAddRule() {
         this.addRuleComponent.open();
         this.addRuleComponent.isAdd = true;
@@ -248,11 +278,14 @@ export class TagRetentionComponent implements OnInit {
             });
     }
 
-    refreshList() {
+    refreshList(state?: ClrDatagridStateInterface) {
         this.index = -1 ;
         this.selectedItem = null;
         this.loadingExecutions = true;
         if (this.retentionId) {
+            if (state && state.page) {
+                this.pageSize = state.page.size;
+            }
             this.tagRetentionService.getRunNowList(this.retentionId, this.currentPage, this.pageSize)
               .pipe(finalize(() => this.loadingExecutions = false))
               .subscribe(
@@ -341,6 +374,14 @@ export class TagRetentionComponent implements OnInit {
                         }
                         this.historyList = response.body as Array<any>;
                         TagRetentionComponent.calculateDuration(this.historyList);
+                        if (this.historyList && this.historyList.length
+                            && this.historyList.some(item => {
+                                return item.status === RUNNING || item.status === PENDING;
+                            })) {
+                            setTimeout(() => {
+                                 this.loadLog();
+                            }, TIMEOUT);
+                        }
                     }, error => {
                         this.errorHandler.error(error);
                     });
@@ -362,6 +403,7 @@ export class TagRetentionComponent implements OnInit {
         this.tagRetentionService.getProjectInfo(this.projectId).subscribe(
             response => {
                 this.retentionId = response.metadata.retention_id;
+                this.refreshList();
                 this.getRetention();
             }, error => {
                 this.loadingRule = false;
@@ -434,7 +476,14 @@ export class TagRetentionComponent implements OnInit {
     getI18nKey(str: string) {
         return this.tagRetentionService.getI18nKey(str);
     }
-    clrLoad() {
-        this.refreshList();
+    clrLoad(state: ClrDatagridStateInterface) {
+        this.refreshList(state);
+    }
+    /**
+     *
+     * @param extras Json string
+     */
+    showUntagged(extras) {
+        return JSON.parse(extras).untagged;
     }
 }

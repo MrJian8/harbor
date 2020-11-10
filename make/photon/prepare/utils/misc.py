@@ -1,9 +1,10 @@
 import os
-import string
 import secrets
+import string
+import sys
 from pathlib import Path
-
-from g import DEFAULT_UID, DEFAULT_GID
+from functools import wraps
+from g import DEFAULT_UID, DEFAULT_GID, host_root_dir
 
 
 # To meet security requirement
@@ -52,22 +53,6 @@ def validate(conf, **kwargs):
         if storage_provider_config == "":
             raise Exception(
                 "Error: no provider configurations are provided for provider %s" % storage_provider_name)
-
-    # Redis validate
-    redis_host = conf.get("configuration", "redis_host")
-    if redis_host is None or len(redis_host) < 1:
-        raise Exception(
-            "Error: redis_host in harbor.yml needs to point to an endpoint of Redis server or cluster.")
-
-    redis_port = conf.get("configuration", "redis_port")
-    if len(redis_port) < 1:
-        raise Exception(
-            "Error: redis_port in harbor.yml needs to point to the port of Redis server or cluster.")
-
-    redis_db_index = conf.get("configuration", "redis_db_index").strip()
-    if len(redis_db_index.split(",")) != 3:
-        raise Exception(
-            "Error invalid value for redis_db_index: %s. please set it as 1,2,3" % redis_db_index)
 
 def validate_crt_subj(dirty_subj):
     subj_list = [item for item in dirty_subj.strip().split("/") \
@@ -154,3 +139,27 @@ def other_can_read(st_mode: int) -> bool:
     Check if other user have the read permission of this st_mode
     """
     return True if st_mode & 0o004 else False
+
+
+# decorator actions
+def stat_decorator(func):
+    @wraps(func)
+    def check_wrapper(*args, **kw):
+        stat = func(*args, **kw)
+        if stat == 0:
+            print("Successfully called func: %s" % func.__name__)
+        else:
+            print("Failed to call func: %s" % func.__name__)
+            sys.exit(1)
+    return check_wrapper
+
+
+def get_realpath(path: str) -> Path:
+    """
+    Return the real path in your host if you mounted your host's filesystem to /hostfs,
+    or return the original path
+    """
+
+    if os.path.isdir(host_root_dir):
+        return host_root_dir.joinpath(path.lstrip('/'))
+    return Path(path)

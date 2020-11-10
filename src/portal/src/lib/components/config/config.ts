@@ -86,6 +86,7 @@ export class Configuration {
     verify_remote_cert: BoolValueItem;
     robot_token_duration: NumberValueItem;
     token_expiration: NumberValueItem;
+    robot_name_prefix?: StringValueItem;
     scan_all_policy: ComplexValueItem;
     read_only: BoolValueItem;
     notification_enable: BoolValueItem;
@@ -98,11 +99,14 @@ export class Configuration {
     oidc_client_id?: StringValueItem;
     oidc_client_secret?: StringValueItem;
     oidc_verify_cert?: BoolValueItem;
+    oidc_auto_onboard?: BoolValueItem;
     oidc_scope?: StringValueItem;
+    oidc_user_claim?: StringValueItem;
     count_per_project: NumberValueItem;
     storage_per_project: NumberValueItem;
     cfg_expiration: NumberValueItem;
     oidc_groups_claim: StringValueItem;
+    oidc_admin_group: StringValueItem;
     public constructor() {
         this.auth_mode = new StringValueItem("db_auth", true);
         this.project_creation_restriction = new StringValueItem("everyone", true);
@@ -135,6 +139,7 @@ export class Configuration {
         this.email_password = new StringValueItem("", true);
         this.email_insecure = new BoolValueItem(false, true);
         this.token_expiration = new NumberValueItem(30, true);
+        this.robot_name_prefix = new StringValueItem("", true);
         this.robot_token_duration = new NumberValueItem(30 * (60 * 24), true);
         this.cfg_expiration = new NumberValueItem(30, true);
         this.verify_remote_cert = new BoolValueItem(false, true);
@@ -155,8 +160,11 @@ export class Configuration {
         this.oidc_client_id = new StringValueItem('', true);
         this.oidc_client_secret = new StringValueItem('', true);
         this.oidc_verify_cert = new BoolValueItem(false, true);
+        this.oidc_auto_onboard = new BoolValueItem(false, true);
         this.oidc_scope = new StringValueItem('', true);
         this.oidc_groups_claim = new StringValueItem('', true);
+        this.oidc_admin_group = new StringValueItem('', true);
+        this.oidc_user_claim = new StringValueItem('', true);
         this.count_per_project = new NumberValueItem(-1, true);
         this.storage_per_project = new NumberValueItem(-1, true);
     }

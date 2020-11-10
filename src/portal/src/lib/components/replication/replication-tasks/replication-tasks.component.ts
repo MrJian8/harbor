@@ -1,5 +1,5 @@
-import { Component, OnInit, Input, OnDestroy } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ReplicationService } from "../../../services/replication.service";
 import { TranslateService } from '@ngx-translate/core';
 import { finalize } from "rxjs/operators";
@@ -9,7 +9,12 @@ import { ReplicationJob, ReplicationTasks, Comparator, ReplicationJobItem, State
 import { CustomComparator, DEFAULT_PAGE_SIZE } from "../../../utils/utils";
 import { RequestQueryParams } from "../../../services/RequestQueryParams";
 import { REFRESH_TIME_DIFFERENCE } from '../../../entities/shared.const';
+import { ClrDatagridStateInterface } from '@clr/angular';
+
 const executionStatus = 'InProgress';
+const STATUS_MAP = {
+  "Succeed": "Succeeded"
+};
 @Component({
   selector: 'replication-tasks',
   templateUrl: './replication-tasks.component.html',
@@ -24,13 +29,13 @@ export class ReplicationTasksComponent implements OnInit, OnDestroy {
   loading = true;
   searchTask: string;
   defaultFilter = "resource_type";
-  tasks: ReplicationTasks;
+  tasks: ReplicationTasks[];
   taskItem: ReplicationTasks[] = [];
   tasksCopy: ReplicationTasks[] = [];
   stopOnGoing: boolean;
   executions: ReplicationJobItem[];
   timerDelay: Subscription;
-  @Input() executionId: string;
+  executionId: string;
   startTimeComparator: Comparator<ReplicationJob> = new CustomComparator<
   ReplicationJob
   >("start_time", "date");
@@ -43,13 +48,19 @@ export class ReplicationTasksComponent implements OnInit, OnDestroy {
     private router: Router,
     private replicationService: ReplicationService,
     private errorHandler: ErrorHandler,
+    private route: ActivatedRoute,
   ) { }
 
   ngOnInit(): void {
     this.searchTask = '';
-    this.getExecutionDetail();
+    this.executionId = this.route.snapshot.params['id'];
+    const resolverData = this.route.snapshot.data;
+    if (resolverData) {
+      const replicationJob = <ReplicationJob>(resolverData["replicationTasksRoutingResolver"]);
+      this.executions = replicationJob.data;
+      this.clrLoadPage();
+    }
   }
-
   getExecutionDetail(): void {
     this.inProgress = true;
     if (this.executionId) {
@@ -139,11 +150,13 @@ export class ReplicationTasksComponent implements OnInit, OnDestroy {
     }
   }
 
-  clrLoadTasks(state: State): void {
+  clrLoadTasks(state: ClrDatagridStateInterface): void {
       if (!state || !state.page || !this.executionId) {
         return;
       }
-
+      if (state && state.page && state.page.size) {
+        this.pageSize = state.page.size;
+      }
       let params: RequestQueryParams = new RequestQueryParams();
       params = params.set('page_size', this.pageSize + '').set('page', this.currentPage + '');
       if (this.searchTask && this.searchTask !== "") {
@@ -196,11 +209,14 @@ export class ReplicationTasksComponent implements OnInit, OnDestroy {
   }
 
   openFilter(isOpen: boolean): void {
-    if (isOpen) {
-        this.isOpenFilterTag = true;
-    } else {
-        this.isOpenFilterTag = false;
+    this.isOpenFilterTag = isOpen;
+  }
+
+  getStatusStr(status: string): string {
+    if (STATUS_MAP && STATUS_MAP[status]) {
+      return STATUS_MAP[status];
     }
+    return status;
   }
 
 }
